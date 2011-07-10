@@ -40,6 +40,18 @@ def db(val):
     """
     return 10 * np.log10(val)
 
+def nextpow2(i):
+    """
+    Find 2^n that is equal to or greater than.
+    
+    code taken from the website:
+    http://www.phys.uu.nl/~haque/computing/WPark_recipes_in_python.html
+    """
+    n = 2
+    while n < i:
+        n = n * 2
+    return n
+
 def ISDistortion(X,Y):
     """
     value = ISDistortion(X, Y)
@@ -493,7 +505,7 @@ def main():
     parser.add_option("--window-size", dest="windowSize", type="float",
                       default=0.04644,help="size of analysis windows, in s.")
     parser.add_option("--Fourier-size", dest="fourierSize", type="int",
-                      default=2048,
+                      default=None,
                       help="size of Fourier transforms, "\
                            "in samples.")
     parser.add_option("--hopsize", dest="hopsize", type="float",
@@ -550,7 +562,7 @@ def main():
         options.voc_output_file = inputAudioFile[:-4]+'_lead.wav'
     
     if options.pitch_output_file is None:
-        options.pitch_output_file = inputAudioFile[:-4]+'_pitches.wav'
+        options.pitch_output_file = inputAudioFile[:-4]+'_pitches.txt'
     
     print "Writing the different following output files:"
     print "    separated lead          in", options.voc_output_file
@@ -565,8 +577,8 @@ def main():
     dataType = data.dtype
     data = np.double(data) / scaleData # makes data vary from -1 to 1
     if data.shape[0] == data.size: # data is multi-channel
-        print "The audio file is not stereo. Making stereo out of mono.\n"
-        print "Or try separateLead.py..."
+        print "The audio file is not stereo. Making stereo out of mono."
+        print "(You could also try the older separateLead.py...)"
         data = np.vstack([data,data]).T 
         # raise ValueError("number of dimensions of the input not 2")
     if data.shape[1] != 2:
@@ -576,9 +588,18 @@ def main():
         data = data[:,0:2]
     
     # Processing the options:
-    windowSizeInSamples = np.round(options.windowSize * fs)
+    windowSizeInSamples = nextpow2(np.round(options.windowSize * fs))
+    
     hopsize = np.round(options.hopsize * fs)
-    NFT = options.fourierSize
+    if hopsize != windowSizeInSamples/8:
+        print "Overriding given hopsize to use 1/8th of window size"
+        hopsize = windowSizeInSamples/8
+    
+    if options.fourierSize is None:
+        NFT = windowSizeInSamples
+    else:
+        NFT = options.fourierSize
+    
     niter = options.nbiter
     R = options.R
     
@@ -591,9 +612,9 @@ def main():
         print "    Number of elements in WM: ", R 
     
     XR, F, N = stft(data[:,0], fs=fs, hopsize=hopsize,
-                   window=sinebell(windowSizeInSamples), nfft=NFT)
+                    window=sinebell(windowSizeInSamples), nfft=NFT)
     XL, F, N = stft(data[:,1], fs=fs, hopsize=hopsize,
-                   window=sinebell(windowSizeInSamples), nfft=NFT)
+                    window=sinebell(windowSizeInSamples), nfft=NFT)
     # SX is the power spectrogram:
     ## SXR = np.maximum(np.abs(XR) ** 2, 10 ** -8)
     ## SXL = np.maximum(np.abs(XL) ** 2, 10 ** -8)

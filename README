@@ -2,16 +2,20 @@
 
 The Python scripts provided in this archive implement the SIMM (Smoothed
 Instantaneous Mixture Model), as published in:
+    [Durrieu2011]
     J.-L. Durrieu, B. David and G. Richard
     "A musically motivated mid-level representation for pitch estimation
     and musical audio source separation", 
-    submitted to the IEEE Journal on Selected Topics on Signal Processing
-    September 2010
+    IEEE Journal on Selected Topics on Signal Processing
+    First submission on September 2010, 
+    Publication scheduled on October 2011.
 and:
+    [Durrieu2010]
     J.-L. Durrieu,
     "Automatic Extraction of the Main Melody from Polyphonic Music Signals",
     EDITE
     Institut TELECOM, TELECOM ParisTech, CNRS LTCI
+    May 2010
 
 The scripts are:
     imageMatlab.py
@@ -50,16 +54,24 @@ Requirements:
 
 Usage:
     The easy way to use these scripts is to run the following line:
-        python separateLeadStereoParam.py path/to/audio/file
-
-    The default action is to process the file given, and write three
+        python separateLeadStereoParam.py path/to/audio/file.wav
+    
+    Only WAV file format is recognized for the moment.
+    
+    The default action is to process the given file, and write five
     result files: 
-        estimated_music.wav
+        path/to/audio/file_acc.wav
             Audio file of the estimated accompaniment part.
-        estimated_solo.wav
+        path/to/audio/file_lead.wav
             Audio file of the estimated lead instrument part (the 
             so-called "solo").
-        pitches.txt
+        path/to/audio/file_acc_VUIMM.wav
+            Audio file of the estimated accompaniment part, with
+            unvoiced lead parts estimation.
+        path/to/audio/file_lead_VUIMM.wav
+            Audio file of the estimated lead instrument part (the 
+            so-called "solo"), with unvoiced lead parts estimation.
+        path/to/audio/file_pitches.txt
             TXT file containing, in the first line, the time labels
             of each analysis window (in s) and, in the second line,
             the sequence of pitches of the lead voice (in Hz).
