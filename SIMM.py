@@ -73,7 +73,8 @@ def SIMM(# the data to be fitted to:
          numberOfIterations=1000, updateRulePower=1.0,
          stepNotes=4, 
          lambdaHF0=0.00,alphaHF0=0.99,
-         displayEvolution=False, verbose=True, makeMovie=False):
+         displayEvolution=False, verbose=True, makeMovie=False,
+         computeISDistortion=False):
     """
     HGAMMA, HPHI, HF0, HM, WM, recoError =
         SIMM(SX, WF0, WGAMMA, numberOfFilters=4,
@@ -309,7 +310,8 @@ def SIMM(# the data to be fitted to:
         
         SF0 = np.maximum(np.dot(WF0, HF0),eps)
         hatSX = np.maximum(SF0 * SPHI + SM,eps)
-        recoError[counterError] = ISDistortion(SX, hatSX)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SX, hatSX)
 
         if verbose:
             print "Reconstruction error difference after HF0   : ",
@@ -328,7 +330,8 @@ def SIMM(# the data to be fitted to:
         SPHI = np.maximum(np.dot(WPHI, HPHI), eps)
         hatSX = np.maximum(SF0 * SPHI + SM, eps)
         
-        recoError[counterError] = ISDistortion(SX, hatSX)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SX, hatSX)
 
         if verbose:
             print "Reconstruction error difference after HPHI  : ", recoError[counterError] - recoError[counterError - 1]
@@ -343,7 +346,8 @@ def SIMM(# the data to be fitted to:
         SM = np.maximum(np.dot(WM, HM), eps)
         hatSX = np.maximum(SF0 * SPHI + SM, eps)
         
-        recoError[counterError] = ISDistortion(SX, hatSX)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SX, hatSX)
 
         if verbose:
             print "Reconstruction error difference after HM    : ", recoError[counterError] - recoError[counterError - 1]
@@ -366,7 +370,8 @@ def SIMM(# the data to be fitted to:
         SPHI = np.maximum(np.dot(WPHI, HPHI), eps)
         hatSX = np.maximum(SF0 * SPHI + SM, eps)
         
-        recoError[counterError] = ISDistortion(SX, hatSX)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SX, hatSX)
 
         if verbose:
             print "Reconstruction error difference after HGAMMA: ",
@@ -391,7 +396,8 @@ def SIMM(# the data to be fitted to:
             SM = np.maximum(np.dot(WM, HM), eps)
             hatSX = np.maximum(SF0 * SPHI + SM, eps)
             
-            recoError[counterError] = ISDistortion(SX, hatSX)
+            if computeISDistortion:
+                recoError[counterError] = ISDistortion(SX, hatSX)
 
             if verbose:
                 print "Reconstruction error difference after WM    : ",

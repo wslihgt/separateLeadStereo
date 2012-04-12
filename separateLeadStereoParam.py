@@ -22,13 +22,15 @@ import SIMM
 
 #import scikits.audiolab
 import scipy
-if np.double(scipy.__version__[:3]) < 0.8:
-    raise ImportError('Version of scipy is %s, to read wavfile, one needs >= 0.8' %(scipy.__version__))
+##if (scipy.__version__) < '0.8':
+##    raise ImportError('Version of scipy is %s, to read wavfile, one needs >= 0.8' %(scipy.__version__))
 import scipy.io.wavfile as wav
 
 import os
 
 from tracking import viterbiTrackingArray
+
+import warnings
 
 # SOME USEFUL, INSTRUMENTAL, FUNCTIONS
 
@@ -499,6 +501,11 @@ def main():
                       action="store_false",
                       help="use to quiet all output verbose",
                       default=True)
+    parser.add_option("-n", "--dontseparate", dest="separateSignals",
+                      action="store_false",
+                      help="Trigger this option if you only desire to "+\
+                           "estimate the melody",
+                      default=True)
     parser.add_option("--nb-iterations", dest="nbiter",
                       help="number of iterations", type="int",
                       default=100)
@@ -592,8 +599,10 @@ def main():
     
     hopsize = np.round(options.hopsize * fs)
     if hopsize != windowSizeInSamples/8:
-        print "Overriding given hopsize to use 1/8th of window size"
-        hopsize = windowSizeInSamples/8
+        #print "Overriding given hopsize to use 1/8th of window size"
+        #hopsize = windowSizeInSamples/8
+        warnings.warn("Chosen hopsize: "+str(hopsize)+\
+                      ", while windowsize: "+str(windowSizeInSamples))
     
     if options.fourierSize is None:
         NFT = windowSizeInSamples
@@ -790,7 +799,7 @@ def main():
         
         HF00[:, indexBestPath == (NF0 - 1)] = 0.0
         HF00[:, indexBestPath == 0] = 0.0
-
+        
         thres_energy = 0.000584
         SF0 = np.maximum(np.dot(WF0, HF00), eps)
         SPHI = np.maximum(np.dot(WGAMMA, np.dot(HGAMMA, HPHI)), eps)
@@ -859,211 +868,212 @@ def main():
                np.array([np.arange(N) * hopsize / np.double(Fs),
                          freqMelody]).T)
     
-    
-    # Second round of parameter estimation, with specific
-    # initial HF00:
-    HF00 = np.zeros([NF0 * chirpPerF0, N])
-    
-    scopeAllowedHF0 = 2.0 / 1.0
-    
-    # indexes for HF00:
-    # TODO: reprogram this with a 'where'?...
-    dim1index = np.array(\
-        np.maximum(\
-        np.minimum(\
-        np.outer(chirpPerF0 * indexBestPath,
-                 np.ones(chirpPerF0 \
-                         * (2 \
-                            * np.floor(stepNotes / scopeAllowedHF0) \
-                            + 1))) \
-        + np.outer(np.ones(N),
-                   np.arange(-chirpPerF0 \
-                             * np.floor(stepNotes / scopeAllowedHF0),
-                             chirpPerF0 \
-                             * (np.floor(stepNotes / scopeAllowedHF0) \
-                                + 1))),
-        chirpPerF0 * NF0 - 1),
-        0),
-        dtype=int)
-    dim1index = dim1index[indexBestPath!=0,:]
-    ## dim1index = dim1index.reshape(1, N * chirpPerF0 \
-    ##                        * (2 * np.floor(stepNotes / scopeAllowedHF0) \
-    ##                          + 1))
-    dim1index = dim1index.reshape(1,dim1index.size)
-    
-    dim2index = np.outer(np.arange(N),
-                         np.ones(chirpPerF0 \
-                                 * (2 * np.floor(stepNotes \
-                                                 / scopeAllowedHF0) + 1), \
-                                 dtype=int)\
-                         )
-    dim2index = dim2index[indexBestPath!=0,:]
-    dim2index = dim2index.reshape(1,dim2index.size)
-    ## dim2index.reshape(1, N * chirpPerF0 \
-    ##                                * (2 * np.floor(stepNotes \
-    ##                                                / scopeAllowedHF0) \
-    ##                                   + 1))
-    HF00[dim1index, dim2index] = 1 # HF0.max()
-    
-    HF00[:, indexBestPath == (NF0 - 1)] = 0.0
-    HF00[:, indexBestPath == 0] = 0.0
-    
-    
-    WF0effective = WF0
-    HF00effective = HF00
-    
-    if options.melody is None:
-        del HF0, HGAMMA, HPHI, HM, WM, HF00, SX
+    # If separation is required:
+    if options.separateSignals:
+        # Second round of parameter estimation, with specific
+        # initial HF00:
+        HF00 = np.zeros([NF0 * chirpPerF0, N])
         
-    alphaR, alphaL, HGAMMA, HPHI, HF0, \
-            betaR, betaL, HM, WM, recoError2 = SIMM.Stereo_SIMM(
-        # the data to be fitted to:
-        SXR, SXL,
-        # the basis matrices for the spectral combs
-        WF0effective,
-        # and for the elementary filters:
-        WGAMMA,
-        # number of desired filters, accompaniment spectra:
-        numberOfFilters=K, numberOfAccompanimentSpectralShapes=R,
-        # if any, initial amplitude matrices for
-        HGAMMA0=None, HPHI0=None,
-        HF00=HF00effective,
-        WM0=None, HM0=None,
-        # Some more optional arguments, to control the "convergence"
-        # of the algo
-        numberOfIterations=niter, updateRulePower=1.0,
-        stepNotes=stepNotes, 
-        lambdaHF0 = 0.0 / (1.0 * SXR.max()), alphaHF0=0.9,
-        verbose=options.verbose, displayEvolution=displayEvolution)
-    
-    WPHI = np.dot(WGAMMA, HGAMMA)
-    SPHI = np.dot(WPHI, HPHI)
-    SF0 = np.dot(WF0effective, HF0)
-    
-    hatSXR = (alphaR**2) * SF0 * SPHI + np.dot(np.dot(WM, betaR**2),HM)
-    hatSXL = (alphaL**2) * SF0 * SPHI + np.dot(np.dot(WM, betaL**2),HM)
-    
-    hatVR = (alphaR**2) * SPHI * SF0 / hatSXR * XR
-    
-    vestR = istft(hatVR, hopsize=hopsize, nfft=NFT,
-                 window=sinebell(windowSizeInSamples)) / 4.0
-    
-    hatVR = (alphaL**2) * SPHI * SF0 / hatSXL * XL
-    
-    vestL = istft(hatVR, hopsize=hopsize, nfft=NFT,
-                 window=sinebell(windowSizeInSamples)) / 4.0
-    
-    #scikits.audiolab.wavwrite(np.array([vestR,vestL]).T, \
-    #                          options.voc_output_file, fs)
-    
-    vestR = np.array(np.round(vestR*scaleData), dtype=dataType)
-    vestL = np.array(np.round(vestL*scaleData), dtype=dataType)
-    wav.write(options.voc_output_file, fs, \
-              np.array([vestR,vestL]).T)
-    
-    #wav.write(options.voc_output_file, fs, \
-    #          np.int16(32768.0 * np.array([vestR,vestL]).T))
-    
-    hatMR = (np.dot(np.dot(WM,betaR ** 2),HM)) / hatSXR * XR
-    
-    mestR = istft(hatMR, hopsize=hopsize, nfft=NFT,
-                 window=sinebell(windowSizeInSamples)) / 4.0
-    
-    hatMR = (np.dot(np.dot(WM,betaL ** 2),HM)) / hatSXL * XL
-    
-    mestL = istft(hatMR, hopsize=hopsize, nfft=NFT,
-                 window=sinebell(windowSizeInSamples)) / 4.0
-    
-    #scikits.audiolab.wavwrite(np.array([mestR,mestL]).T, \
-    #                          options.mus_output_file, fs)
-    
-    mestR = np.array(np.round(mestR*scaleData), dtype=dataType)
-    mestL = np.array(np.round(mestL*scaleData), dtype=dataType)
-    wav.write(options.mus_output_file, fs, \
-              np.array([mestR,mestL]).T)
-    
-    #wav.write(options.mus_output_file, fs, \
-    #          np.int16(32768.0 * np.array([mestR,mestL]).T))
-    
-    del hatMR, mestL, vestL, vestR, mestR, hatVR, hatSXR, hatSXL, SPHI, SF0
-    
-    # adding the unvoiced part in the source basis:
-    WUF0 = np.hstack([WF0, np.ones([WF0.shape[0], 1])])
-    HUF0 = np.vstack([HF0, np.ones([1, HF0.shape[1]])])
-    ## HUF0[-1,:] = HF0.sum(axis=0) # should we do this?
-    
-    alphaR, alphaL, HGAMMA, HPHI, HF0, \
-            betaR, betaL, HM, WM, recoError3 = SIMM.Stereo_SIMM(
-        # the data to be fitted to:
-        SXR, SXL,
-        # the basis matrices for the spectral combs
-        WUF0,
-        # and for the elementary filters:
-        WGAMMA,
-        # number of desired filters, accompaniment spectra:
-        numberOfFilters=K, numberOfAccompanimentSpectralShapes=R,
-        # if any, initial amplitude matrices for
-        HGAMMA0=HGAMMA, HPHI0=HPHI,
-        HF00=HUF0,
-        WM0=None,#WM,
-        HM0=None,#HM,
-        # Some more optional arguments, to control the "convergence"
-        # of the algo
-        numberOfIterations=niter, updateRulePower=1.0,
-        stepNotes=stepNotes, 
-        lambdaHF0 = 0.0 / (1.0 * SXR.max()), alphaHF0=0.9,
-        verbose=options.verbose, displayEvolution=displayEvolution,
-        updateHGAMMA=False)
-    
-    WPHI = np.dot(WGAMMA, HGAMMA)
-    SPHI = np.dot(WPHI, HPHI)
-    SF0 = np.dot(WUF0, HF0)
-    
-    hatSXR = (alphaR**2) * SF0 * SPHI + np.dot(np.dot(WM, betaR**2),HM)
-    hatSXL = (alphaL**2) * SF0 * SPHI + np.dot(np.dot(WM, betaL**2),HM)
-    
-    hatVR = (alphaR**2) * SPHI * SF0 / hatSXR * XR
-    
-    vestR = istft(hatVR, hopsize=hopsize, nfft=NFT,
-                  window=sinebell(windowSizeInSamples)) / 4.0
-    
-    hatVR = (alphaL**2) * SPHI * SF0 / hatSXL * XL
-    
-    vestL = istft(hatVR, hopsize=hopsize, nfft=NFT,
-                  window=sinebell(windowSizeInSamples)) / 4.0
-    
-    outputFileName = options.voc_output_file[:-4] + '_VUIMM.wav'
-    # scikits.audiolab.wavwrite(np.array([vestR,vestL]).T, outputFileName, fs)
-    
-    vestR = np.array(np.round(vestR*scaleData), dtype=dataType)
-    vestL = np.array(np.round(vestL*scaleData), dtype=dataType)
-    wav.write(outputFileName, fs, \
-              np.array([vestR,vestL]).T)
-    
-    hatMR = (np.dot(np.dot(WM,betaR ** 2),HM)) / hatSXR * XR
-    
-    mestR = istft(hatMR, hopsize=hopsize, nfft=NFT,
-                 window=sinebell(windowSizeInSamples)) / 4.0
-    
-    hatMR = (np.dot(np.dot(WM,betaL ** 2),HM)) / hatSXL * XL
-    
-    mestL = istft(hatMR, hopsize=hopsize, nfft=NFT,
-                 window=sinebell(windowSizeInSamples)) / 4.0
-    
-    outputFileName = options.mus_output_file[:-4] + '_VUIMM.wav'
-    #scikits.audiolab.wavwrite(np.array([mestR,mestL]).T, outputFileName, fs)
-    
-    mestR = np.array(np.round(mestR*scaleData), dtype=dataType)
-    mestL = np.array(np.round(mestL*scaleData), dtype=dataType)
-    wav.write(outputFileName, fs, \
-              np.array([mestR,mestL]).T)
-    
-    if displayEvolution:
-        plt.close('all')
-        ## raw_input("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"\
-        ##           "!! Press Return to end the program...  !!\n"\
-        ##           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    
+        scopeAllowedHF0 = 2.0 / 1.0
+        
+        # indexes for HF00:
+        # TODO: reprogram this with a 'where'?...
+        dim1index = np.array(\
+            np.maximum(\
+            np.minimum(\
+            np.outer(chirpPerF0 * indexBestPath,
+                     np.ones(chirpPerF0 \
+                             * (2 \
+                                * np.floor(stepNotes / scopeAllowedHF0) \
+                                + 1))) \
+            + np.outer(np.ones(N),
+                       np.arange(-chirpPerF0 \
+                                 * np.floor(stepNotes / scopeAllowedHF0),
+                                 chirpPerF0 \
+                                 * (np.floor(stepNotes / scopeAllowedHF0) \
+                                    + 1))),
+            chirpPerF0 * NF0 - 1),
+            0),
+            dtype=int)
+        dim1index = dim1index[indexBestPath!=0,:]
+        ## dim1index = dim1index.reshape(1, N * chirpPerF0 \
+        ##                        * (2 * np.floor(stepNotes / scopeAllowedHF0) \
+        ##                          + 1))
+        dim1index = dim1index.reshape(1,dim1index.size)
+        
+        dim2index = np.outer(np.arange(N),
+                             np.ones(chirpPerF0 \
+                                     * (2 * np.floor(stepNotes \
+                                                     / scopeAllowedHF0) + 1), \
+                                     dtype=int)\
+                             )
+        dim2index = dim2index[indexBestPath!=0,:]
+        dim2index = dim2index.reshape(1,dim2index.size)
+        ## dim2index.reshape(1, N * chirpPerF0 \
+        ##                                * (2 * np.floor(stepNotes \
+        ##                                                / scopeAllowedHF0) \
+        ##                                   + 1))
+        HF00[dim1index, dim2index] = 1 # HF0.max()
+        
+        HF00[:, indexBestPath == (NF0 - 1)] = 0.0
+        HF00[:, indexBestPath == 0] = 0.0
+        
+        
+        WF0effective = WF0
+        HF00effective = HF00
+        
+        if options.melody is None:
+            del HF0, HGAMMA, HPHI, HM, WM, HF00, SX
+            
+        alphaR, alphaL, HGAMMA, HPHI, HF0, \
+                betaR, betaL, HM, WM, recoError2 = SIMM.Stereo_SIMM(
+            # the data to be fitted to:
+            SXR, SXL,
+            # the basis matrices for the spectral combs
+            WF0effective,
+            # and for the elementary filters:
+            WGAMMA,
+            # number of desired filters, accompaniment spectra:
+            numberOfFilters=K, numberOfAccompanimentSpectralShapes=R,
+            # if any, initial amplitude matrices for
+            HGAMMA0=None, HPHI0=None,
+            HF00=HF00effective,
+            WM0=None, HM0=None,
+            # Some more optional arguments, to control the "convergence"
+            # of the algo
+            numberOfIterations=niter, updateRulePower=1.0,
+            stepNotes=stepNotes, 
+            lambdaHF0 = 0.0 / (1.0 * SXR.max()), alphaHF0=0.9,
+            verbose=options.verbose, displayEvolution=displayEvolution)
+        
+        WPHI = np.dot(WGAMMA, HGAMMA)
+        SPHI = np.dot(WPHI, HPHI)
+        SF0 = np.dot(WF0effective, HF0)
+        
+        hatSXR = (alphaR**2) * SF0 * SPHI + np.dot(np.dot(WM, betaR**2),HM)
+        hatSXL = (alphaL**2) * SF0 * SPHI + np.dot(np.dot(WM, betaL**2),HM)
+        
+        hatVR = (alphaR**2) * SPHI * SF0 / hatSXR * XR
+        
+        vestR = istft(hatVR, hopsize=hopsize, nfft=NFT,
+                     window=sinebell(windowSizeInSamples)) / 4.0
+        
+        hatVR = (alphaL**2) * SPHI * SF0 / hatSXL * XL
+        
+        vestL = istft(hatVR, hopsize=hopsize, nfft=NFT,
+                     window=sinebell(windowSizeInSamples)) / 4.0
+        
+        #scikits.audiolab.wavwrite(np.array([vestR,vestL]).T, \
+        #                          options.voc_output_file, fs)
+        
+        vestR = np.array(np.round(vestR*scaleData), dtype=dataType)
+        vestL = np.array(np.round(vestL*scaleData), dtype=dataType)
+        wav.write(options.voc_output_file, fs, \
+                  np.array([vestR,vestL]).T)
+        
+        #wav.write(options.voc_output_file, fs, \
+        #          np.int16(32768.0 * np.array([vestR,vestL]).T))
+        
+        hatMR = (np.dot(np.dot(WM,betaR ** 2),HM)) / hatSXR * XR
+        
+        mestR = istft(hatMR, hopsize=hopsize, nfft=NFT,
+                     window=sinebell(windowSizeInSamples)) / 4.0
+        
+        hatMR = (np.dot(np.dot(WM,betaL ** 2),HM)) / hatSXL * XL
+        
+        mestL = istft(hatMR, hopsize=hopsize, nfft=NFT,
+                     window=sinebell(windowSizeInSamples)) / 4.0
+        
+        #scikits.audiolab.wavwrite(np.array([mestR,mestL]).T, \
+        #                          options.mus_output_file, fs)
+        
+        mestR = np.array(np.round(mestR*scaleData), dtype=dataType)
+        mestL = np.array(np.round(mestL*scaleData), dtype=dataType)
+        wav.write(options.mus_output_file, fs, \
+                  np.array([mestR,mestL]).T)
+        
+        #wav.write(options.mus_output_file, fs, \
+        #          np.int16(32768.0 * np.array([mestR,mestL]).T))
+        
+        del hatMR, mestL, vestL, vestR, mestR, hatVR, hatSXR, hatSXL, SPHI, SF0
+        
+        # adding the unvoiced part in the source basis:
+        WUF0 = np.hstack([WF0, np.ones([WF0.shape[0], 1])])
+        HUF0 = np.vstack([HF0, np.ones([1, HF0.shape[1]])])
+        ## HUF0[-1,:] = HF0.sum(axis=0) # should we do this?
+        
+        alphaR, alphaL, HGAMMA, HPHI, HF0, \
+                betaR, betaL, HM, WM, recoError3 = SIMM.Stereo_SIMM(
+            # the data to be fitted to:
+            SXR, SXL,
+            # the basis matrices for the spectral combs
+            WUF0,
+            # and for the elementary filters:
+            WGAMMA,
+            # number of desired filters, accompaniment spectra:
+            numberOfFilters=K, numberOfAccompanimentSpectralShapes=R,
+            # if any, initial amplitude matrices for
+            HGAMMA0=HGAMMA, HPHI0=HPHI,
+            HF00=HUF0,
+            WM0=None,#WM,
+            HM0=None,#HM,
+            # Some more optional arguments, to control the "convergence"
+            # of the algo
+            numberOfIterations=niter, updateRulePower=1.0,
+            stepNotes=stepNotes, 
+            lambdaHF0 = 0.0 / (1.0 * SXR.max()), alphaHF0=0.9,
+            verbose=options.verbose, displayEvolution=displayEvolution,
+            updateHGAMMA=False)
+        
+        WPHI = np.dot(WGAMMA, HGAMMA)
+        SPHI = np.dot(WPHI, HPHI)
+        SF0 = np.dot(WUF0, HF0)
+        
+        hatSXR = (alphaR**2) * SF0 * SPHI + np.dot(np.dot(WM, betaR**2),HM)
+        hatSXL = (alphaL**2) * SF0 * SPHI + np.dot(np.dot(WM, betaL**2),HM)
+        
+        hatVR = (alphaR**2) * SPHI * SF0 / hatSXR * XR
+        
+        vestR = istft(hatVR, hopsize=hopsize, nfft=NFT,
+                      window=sinebell(windowSizeInSamples)) / 4.0
+        
+        hatVR = (alphaL**2) * SPHI * SF0 / hatSXL * XL
+        
+        vestL = istft(hatVR, hopsize=hopsize, nfft=NFT,
+                      window=sinebell(windowSizeInSamples)) / 4.0
+        
+        outputFileName = options.voc_output_file[:-4] + '_VUIMM.wav'
+        # scikits.audiolab.wavwrite(np.array([vestR,vestL]).T, outputFileName, fs)
+        
+        vestR = np.array(np.round(vestR*scaleData), dtype=dataType)
+        vestL = np.array(np.round(vestL*scaleData), dtype=dataType)
+        wav.write(outputFileName, fs, \
+                  np.array([vestR,vestL]).T)
+        
+        hatMR = (np.dot(np.dot(WM,betaR ** 2),HM)) / hatSXR * XR
+        
+        mestR = istft(hatMR, hopsize=hopsize, nfft=NFT,
+                     window=sinebell(windowSizeInSamples)) / 4.0
+        
+        hatMR = (np.dot(np.dot(WM,betaL ** 2),HM)) / hatSXL * XL
+        
+        mestL = istft(hatMR, hopsize=hopsize, nfft=NFT,
+                     window=sinebell(windowSizeInSamples)) / 4.0
+        
+        outputFileName = options.mus_output_file[:-4] + '_VUIMM.wav'
+        #scikits.audiolab.wavwrite(np.array([mestR,mestL]).T, outputFileName, fs)
+        
+        mestR = np.array(np.round(mestR*scaleData), dtype=dataType)
+        mestL = np.array(np.round(mestL*scaleData), dtype=dataType)
+        wav.write(outputFileName, fs, \
+                  np.array([mestR,mestL]).T)
+        
+        if displayEvolution:
+            plt.close('all')
+            ## raw_input("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"\
+            ##           "!! Press Return to end the program...  !!\n"\
+            ##           "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            
     print "Done!"
 
 if __name__ == '__main__':

@@ -1,0 +1,5 @@
+2012-04-10  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
+
+	* SIMM.py (SIMM): added boolean to avoid computation of
+	IS distortion
+
