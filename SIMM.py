@@ -74,6 +74,7 @@ def SIMM(# the data to be fitted to:
          stepNotes=4, 
          lambdaHF0=0.00,alphaHF0=0.99,
          displayEvolution=False, verbose=True, makeMovie=False,
+         updateHGAMMA=True,
          computeISDistortion=False):
     """
     HGAMMA, HPHI, HF0, HM, WM, recoError =
@@ -303,10 +304,9 @@ def SIMM(# the data to be fitted to:
                 np.dot(WF0[:, np.arange(12 * stepNotes)].T,
                        tempDenFbyN), eps)) ** omega
 
-##        # normal update rules:
-##        HF0 = HF0 * (np.dot(WF0.T, tempNumFbyN) /
-##                     np.maximum(np.dot(WF0.T, tempDenFbyN), eps)) ** omega
-        
+        ### normal update rules without checking octaves:
+        ##HF0 = HF0 * (np.dot(WF0.T, tempNumFbyN) /
+        ##             np.maximum(np.dot(WF0.T, tempDenFbyN), eps)) ** omega
         
         SF0 = np.maximum(np.dot(WF0, HF0),eps)
         hatSX = np.maximum(SF0 * SPHI + SM,eps)
@@ -321,9 +321,11 @@ def SIMM(# the data to be fitted to:
         # updating HPHI
         tempNumFbyN = (SF0 * SX) / np.maximum(hatSX ** 2, eps)
         tempDenFbyN = SF0 / np.maximum(hatSX, eps)
-        HPHI = HPHI * (np.dot(WPHI.T, tempNumFbyN) / np.maximum(np.dot(WPHI.T, tempDenFbyN), eps)) ** omega
+        HPHI = HPHI * (np.dot(WPHI.T, tempNumFbyN) / \
+                       np.maximum(np.dot(WPHI.T, tempDenFbyN), eps)) ** omega
         sumHPHI = np.sum(HPHI, axis=0)
-        HPHI[:, sumHPHI>0] = HPHI[:, sumHPHI>0] / np.outer(np.ones(K), sumHPHI[sumHPHI>0])
+        HPHI[:, sumHPHI>0] = HPHI[:, sumHPHI>0] / \
+                             np.outer(np.ones(K), sumHPHI[sumHPHI>0])
         HF0 = HF0 * np.outer(np.ones(NF0), sumHPHI)
 
         SF0 = np.maximum(np.dot(WF0, HF0), eps)
@@ -334,15 +336,17 @@ def SIMM(# the data to be fitted to:
             recoError[counterError] = ISDistortion(SX, hatSX)
 
         if verbose:
-            print "Reconstruction error difference after HPHI  : ", recoError[counterError] - recoError[counterError - 1]
+            print "Reconstruction error difference after HPHI  : ", \
+                  recoError[counterError] - recoError[counterError - 1]
         counterError += 1
-        
         
         # updating HM
         tempNumFbyN = SX / np.maximum(hatSX ** 2, eps)
         tempDenFbyN = 1 / np.maximum(hatSX, eps)
-        HM = np.maximum(HM * (np.dot(WM.T, tempNumFbyN) / np.maximum(np.dot(WM.T, tempDenFbyN), eps)) ** omega, eps)
-
+        HM = np.maximum(HM * (np.dot(WM.T, tempNumFbyN) / \
+                              np.maximum(np.dot(WM.T, tempDenFbyN), eps)) ** \
+                        omega, eps)
+        
         SM = np.maximum(np.dot(WM, HM), eps)
         hatSX = np.maximum(SF0 * SPHI + SM, eps)
         
@@ -350,32 +354,43 @@ def SIMM(# the data to be fitted to:
             recoError[counterError] = ISDistortion(SX, hatSX)
 
         if verbose:
-            print "Reconstruction error difference after HM    : ", recoError[counterError] - recoError[counterError - 1]
+            print "Reconstruction error difference after HM    : ", \
+                  recoError[counterError] - recoError[counterError - 1]
         counterError += 1
 
         # updating HGAMMA
-        tempNumFbyN = (SF0 * SX) / np.maximum(hatSX ** 2, eps)
-        tempDenFbyN = SF0 / np.maximum(hatSX, eps)
-        HGAMMA = np.maximum(HGAMMA * (np.dot(WGAMMA.T, np.dot(tempNumFbyN, HPHI.T)) / np.maximum(np.dot(WGAMMA.T, np.dot(tempDenFbyN, HPHI.T)), eps)) ** omega, eps)
-
-        sumHGAMMA = np.sum(HGAMMA, axis=0)
-        HGAMMA[:, sumHGAMMA>0] = HGAMMA[:, sumHGAMMA>0] / np.outer(np.ones(P), sumHGAMMA[sumHGAMMA>0])
-        HPHI = HPHI * np.outer(sumHGAMMA, np.ones(N))
-        sumHPHI = np.sum(HPHI, axis=0)
-        HPHI[:, sumHPHI>0] = HPHI[:, sumHPHI>0] / np.outer(np.ones(K), sumHPHI[sumHPHI>0])
-        HF0 = HF0 * np.outer(np.ones(NF0), sumHPHI)
-        
-        WPHI = np.maximum(np.dot(WGAMMA, HGAMMA), eps)
-        SF0 = np.maximum(np.dot(WF0, HF0), eps)
-        SPHI = np.maximum(np.dot(WPHI, HPHI), eps)
-        hatSX = np.maximum(SF0 * SPHI + SM, eps)
-        
-        if computeISDistortion:
-            recoError[counterError] = ISDistortion(SX, hatSX)
-
-        if verbose:
-            print "Reconstruction error difference after HGAMMA: ",
-            print recoError[counterError] - recoError[counterError - 1]
+        if updateHGAMMA:
+            tempNumFbyN = (SF0 * SX) / np.maximum(hatSX ** 2, eps)
+            tempDenFbyN = SF0 / np.maximum(hatSX, eps)
+            HGAMMA = np.maximum(\
+                     HGAMMA * (np.dot(WGAMMA.T, \
+                                      np.dot(tempNumFbyN, HPHI.T)) / \
+                               np.maximum(\
+                                   np.dot(WGAMMA.T, \
+                                          np.dot(tempDenFbyN, HPHI.T)),
+                                   eps)) ** \
+                     omega, eps)
+            
+            sumHGAMMA = np.sum(HGAMMA, axis=0)
+            HGAMMA[:, sumHGAMMA>0] = HGAMMA[:, sumHGAMMA>0] / \
+                                     np.outer(np.ones(P), \
+                                              sumHGAMMA[sumHGAMMA>0])
+            HPHI = HPHI * np.outer(sumHGAMMA, np.ones(N))
+            sumHPHI = np.sum(HPHI, axis=0)
+            HPHI[:, sumHPHI>0] = HPHI[:, sumHPHI>0] / np.outer(np.ones(K), sumHPHI[sumHPHI>0])
+            HF0 = HF0 * np.outer(np.ones(NF0), sumHPHI)
+            
+            WPHI = np.maximum(np.dot(WGAMMA, HGAMMA), eps)
+            SF0 = np.maximum(np.dot(WF0, HF0), eps)
+            SPHI = np.maximum(np.dot(WPHI, HPHI), eps)
+            hatSX = np.maximum(SF0 * SPHI + SM, eps)
+            
+            if computeISDistortion:
+                recoError[counterError] = ISDistortion(SX, hatSX)
+                
+            if verbose:
+                print "Reconstruction error difference after HGAMMA: ",
+                print recoError[counterError] - recoError[counterError - 1]
             
         counterError += 1
 
@@ -424,7 +439,8 @@ def Stereo_SIMM(# the data to be fitted to:
          stepNotes=4, 
          lambdaHF0=0.00,alphaHF0=0.99,
          displayEvolution=False, verbose=True,
-         updateHGAMMA=True):
+         updateHGAMMA=True,
+         computeISDistortion=False):
     """
     HGAMMA, HPHI, HF0, HM, WM, recoError =
         SIMM(SXR, SXL, WF0, WGAMMA, numberOfFilters=4,
@@ -672,8 +688,9 @@ def Stereo_SIMM(# the data to be fitted to:
                             np.dot(np.dot(WM, betaL**2),HM),
                             eps)
         
-        recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                  + ISDistortion(SXL, hatSXL)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                      + ISDistortion(SXL, hatSXL)
 
         if verbose:
             print "Reconstruction error difference after HF0   : ",
@@ -681,14 +698,16 @@ def Stereo_SIMM(# the data to be fitted to:
         counterError += 1
     
         # updating HPHI
-        if updateHGAMMA or True:
+        if updateHGAMMA or True: # updating HPHI even if not updating HGAMMA
             tempNumFbyN = ((alphaR**2) * SF0 * SXR) / np.maximum(hatSXR ** 2, eps)\
                           + ((alphaL**2) * SF0 * SXL) / np.maximum(hatSXL ** 2, eps)
             tempDenFbyN = (alphaR**2) * SF0 / np.maximum(hatSXR, eps)\
                           + (alphaL**2) * SF0 / np.maximum(hatSXL, eps)
-            HPHI = HPHI * (np.dot(WPHI.T, tempNumFbyN) / np.maximum(np.dot(WPHI.T, tempDenFbyN), eps)) ** omega
+            HPHI = HPHI * (np.dot(WPHI.T, tempNumFbyN) / \
+                           np.maximum(np.dot(WPHI.T, tempDenFbyN), eps)) ** omega
             sumHPHI = np.sum(HPHI, axis=0)
-            HPHI[:, sumHPHI>0] = HPHI[:, sumHPHI>0] / np.outer(np.ones(K), sumHPHI[sumHPHI>0])
+            HPHI[:, sumHPHI>0] = HPHI[:, sumHPHI>0] / \
+                                 np.outer(np.ones(K), sumHPHI[sumHPHI>0])
             HF0 = HF0 * np.outer(np.ones(NF0), sumHPHI)
             
             SF0 = np.maximum(np.dot(WF0, HF0), eps)
@@ -700,11 +719,13 @@ def Stereo_SIMM(# the data to be fitted to:
                                 np.dot(np.dot(WM, betaL**2),HM),
                                 eps)
             
-            recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                      + ISDistortion(SXL, hatSXL)
+            if computeISDistortion:
+                recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                          + ISDistortion(SXL, hatSXL)
             
             if verbose:
-                print "Reconstruction error difference after HPHI  : ", recoError[counterError] - recoError[counterError - 1]
+                print "Reconstruction error difference after HPHI  : ", \
+                      recoError[counterError] - recoError[counterError - 1]
                 
             counterError += 1
         
@@ -731,12 +752,13 @@ def Stereo_SIMM(# the data to be fitted to:
                             np.dot(np.dot(WM, betaR**2),HM), eps)
         hatSXL = np.maximum((alphaL**2) * SF0 * SPHI + \
                             np.dot(np.dot(WM, betaL**2),HM), eps)
-        
-        recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                  + ISDistortion(SXL, hatSXL)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                      + ISDistortion(SXL, hatSXL)
 
         if verbose:
-            print "Reconstruction error difference after HM    : ", recoError[counterError] - recoError[counterError - 1]
+            print "Reconstruction error difference after HM    : ", \
+                  recoError[counterError] - recoError[counterError - 1]
         counterError += 1  
 
         # updating HGAMMA
@@ -763,9 +785,9 @@ def Stereo_SIMM(# the data to be fitted to:
                                 np.dot(np.dot(WM, betaR**2),HM), eps)
             hatSXL = np.maximum((alphaL**2) * SF0 * SPHI + \
                                 np.dot(np.dot(WM, betaL**2),HM), eps)
-            
-            recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                      + ISDistortion(SXL, hatSXL)
+            if computeISDistortion:
+                recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                          + ISDistortion(SXL, hatSXL)
             
             if verbose:
                 print "Reconstruction error difference after HGAMMA: ",
@@ -803,8 +825,9 @@ def Stereo_SIMM(# the data to be fitted to:
             hatSXL = np.maximum((alphaL**2) * SF0 * SPHI + \
                                 np.dot(np.dot(WM, betaL**2),HM), eps)
             
-            recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                  + ISDistortion(SXL, hatSXL)
+            if computeISDistortion:
+                recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                          + ISDistortion(SXL, hatSXL)
 
             if verbose:
                 print "Reconstruction error difference after WM    : ",
@@ -824,39 +847,45 @@ def Stereo_SIMM(# the data to be fitted to:
                             np.sum(tempDenFbyN)) ** (omega*.1), eps)
         alphaR = alphaR / np.maximum(alphaR + alphaL, .001)
         alphaL = np.copy(1 - alphaR)
-
-            
+        
+        
         hatSXR = np.maximum((alphaR**2) * SF0 * SPHI + \
                             np.dot(np.dot(WM, betaR**2),HM), eps)
         hatSXL = np.maximum((alphaL**2) * SF0 * SPHI + \
                             np.dot(np.dot(WM, betaL**2),HM), eps)
         
-        recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                  + ISDistortion(SXL, hatSXL)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                      + ISDistortion(SXL, hatSXL)
         
         if verbose:
             print "Reconstruction error difference after ALPHA : ",
             print recoError[counterError] - recoError[counterError - 1]
         counterError += 1
-            
-
+        
+        
         # updating betaR and betaL
         betaR = np.diag(np.diag(np.maximum(betaR *
-                                   ((np.dot(np.dot(WM.T, SXR / np.maximum(hatSXR ** 2, eps)), HM.T)) /
-                                   (np.dot(np.dot(WM.T, 1 / np.maximum(hatSXR, eps)), HM.T))) ** (omega*.1), eps)))
+                    ((np.dot(np.dot(WM.T, SXR / \
+                                    np.maximum(hatSXR ** 2, eps)), HM.T)) /
+                     (np.dot(np.dot(WM.T, 1 / np.maximum(hatSXR, eps)), \
+                             HM.T))) ** (omega*.1), eps)))
         betaL = np.diag(np.diag(np.maximum(betaL *
-                                   ((np.dot(np.dot(WM.T, SXL / np.maximum(hatSXL ** 2, eps)), HM.T)) /
-                                   (np.dot(np.dot(WM.T, 1 / np.maximum(hatSXL, eps)), HM.T))) ** (omega*.1), eps)))
+                    ((np.dot(np.dot(WM.T, SXL / \
+                                    np.maximum(hatSXL ** 2, eps)), HM.T)) /
+                     (np.dot(np.dot(WM.T, 1 / np.maximum(hatSXL, eps)), \
+                             HM.T))) ** (omega*.1), eps)))
         betaR = betaR / np.maximum(betaR + betaL, eps)
         betaL = np.copy(np.eye(R) - betaR)
-
+        
         hatSXR = np.maximum((alphaR**2) * SF0 * SPHI + \
                             np.dot(np.dot(WM, betaR**2),HM), eps)
         hatSXL = np.maximum((alphaL**2) * SF0 * SPHI + \
                             np.dot(np.dot(WM, betaL**2),HM), eps)
         
-        recoError[counterError] = ISDistortion(SXR, hatSXR) \
-                                  + ISDistortion(SXL, hatSXL)
+        if computeISDistortion:
+            recoError[counterError] = ISDistortion(SXR, hatSXR) \
+                                      + ISDistortion(SXL, hatSXL)
         
         if verbose:
             print "Reconstruction error difference after BETA  : ",

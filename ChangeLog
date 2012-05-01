@@ -1,3 +1,14 @@
+2012-05-01  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
+
+	* SIMM.py (SIMM): 
+	added the updateHGAMMA flag, to enable targetted reestimation of 
+	parameters
+	TODO: make this a string like updateParams='fgpmFGPM' such that
+	if 'f' in updateParams, update WF0, if 'F' in... update HF0, etc.
+
+	* separateLeadStereoParam.py (main): 
+	Refactoring, changed fs to Fs, to no duplicate variable
+
 2012-04-10  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
 
 	* SIMM.py (SIMM): added boolean to avoid computation of
