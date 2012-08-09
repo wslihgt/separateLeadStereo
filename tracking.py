@@ -88,7 +88,7 @@ def viterbiTracking(logDensity, logPriorDensities, logTransitionMatrix,
     # backtracking:
     bestStatePath = zeros(numberOfFrames)
     bestStatePath[-1] = argmax(cumulativeProbability[:, numberOfFrames - 1])
-    for n in arange(numberOfFrames - 2, 0, -1):
+    for n in arange(numberOfFrames - 2, -1, -1):
         bestStatePath[n] = antecedents[bestStatePath[n + 1], n + 1]
 
     return bestStatePath
@@ -160,7 +160,7 @@ def viterbiTrackingArray(logDensity, logPriorDensities, logTransitionMatrix,
     bestStatePath = zeros(numberOfFrames)
     bestStatePath[-1]= argmax(cumulativeProbability[:, numberOfFrames \
                                                                   - 1])
-    for n in arange(numberOfFrames - 2, 0, -1):
+    for n in arange(numberOfFrames - 2, -1, -1):
         bestStatePath[n] = antecedents[bestStatePath[n + 1], n + 1]
         
     return bestStatePath

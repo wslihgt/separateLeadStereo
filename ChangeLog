@@ -1,3 +1,10 @@
+2012-05-22  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
+
+	* tracking.py (viterbiTrackingArray): 
+	Correction by E. Vincent: stopping limit in qrqnge should be -1,
+	and not 0 in:
+	arange(numberOfFrames - 2, -1, -1)
+
 2012-05-01  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
 
 	* SIMM.py (SIMM): 
@@ -13,4 +20,3 @@
 
 	* SIMM.py (SIMM): added boolean to avoid computation of
 	IS distortion
-
