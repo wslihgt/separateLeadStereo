@@ -469,7 +469,7 @@ def generateHannBasis(numberFrequencyBins, sizeOfFourier, Fs, \
     return WGAMMA
 
 # MAIN FUNCTION, FOR DEFAULT BEHAVIOUR IF THE SCRIPT IS "LAUNCHED"
-def main(options, args):
+def main():
     import optparse
     
     usage = "usage: %prog [options] inputAudioFile"

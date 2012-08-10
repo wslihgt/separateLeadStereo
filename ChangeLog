@@ -1,3 +1,8 @@
+2012-08-10  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
+
+	* separateLeadStereoParam.py (main): removed "option, args" from
+	main method arguments (not sure why this was added...)
+
 2012-05-22  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
 
 	* tracking.py (viterbiTrackingArray): 
@@ -14,7 +19,7 @@
 	if 'f' in updateParams, update WF0, if 'F' in... update HF0, etc.
 
 	* separateLeadStereoParam.py (main): 
-	Refactoring, changed fs to Fs, to no duplicate variable
+	Refactoring, changed fs to Fs, to avoid duplicate variable
 
 2012-04-10  Jean-Louis Durrieu  <jean-louis.durrieu@epfl.ch>
 
